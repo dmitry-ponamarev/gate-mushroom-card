@@ -8,7 +8,7 @@
  * через визуальный редактор (icon selector).
  */
 
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "1.1.0";
 
 const GATE_TYPES = ["sliding", "sectional", "swing"];
 
@@ -148,6 +148,18 @@ class GateMushroomCard extends HTMLElement {
             },
           },
         },
+        {
+          name: "layout",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "horizontal", label: "Горизонтальный" },
+                { value: "vertical", label: "Вертикальный" },
+              ],
+            },
+          },
+        },
         { name: "invert_status", selector: { boolean: {} } },
         {
           name: "move_timeout",
@@ -176,6 +188,7 @@ class GateMushroomCard extends HTMLElement {
           status_entity: "Датчик состояния (необязательно)",
           name: "Название",
           gate_type: "Тип ворот",
+          layout: "Вид карточки",
           invert_status: "Инвертировать датчик (on = закрыто)",
           move_timeout: "Таймаут движения",
           icon: "Иконка (одна для всех состояний)",
@@ -207,6 +220,7 @@ class GateMushroomCard extends HTMLElement {
     }
     this._config = config;
     this._type = GATE_TYPES.includes(config.gate_type) ? config.gate_type : "sliding";
+    this._layout = config.layout === "vertical" ? "vertical" : "horizontal";
     this._timeout = Math.max(5, Number(config.move_timeout) || 30) * 1000;
     this._local = "closed";
     this._moving = null;
@@ -430,7 +444,7 @@ class GateMushroomCard extends HTMLElement {
     const stateText =
       STATE_TEXT[st] + (pos !== null && st !== "unavailable" ? ` · ${Math.round(pos)}%` : "");
 
-    const sig = [name, st, stateText, icon, label, color, moving].join("|");
+    const sig = [name, st, stateText, icon, label, color, moving, this._layout].join("|");
     if (!force && sig === this._lastSig) return;
     this._lastSig = sig;
 
@@ -490,8 +504,25 @@ class GateMushroomCard extends HTMLElement {
         .pill:active { transform: scale(.96); }
         .pill:disabled { opacity: .4; cursor: default; transform: none; }
         .unavail { opacity: .6; }
+        /* ---- вертикальный вид (как в Mushroom) ---- */
+        ha-card.vertical { display: flex; flex-direction: column; }
+        ha-card.vertical .v-top { margin-bottom: 8px; }
+        ha-card.vertical .names { margin-bottom: 12px; }
+        ha-card.vertical .pill { align-self: stretch; }
       </style>
-      <ha-card class="${st === "unavailable" ? "unavail" : ""}">
+      <ha-card class="${[st === "unavailable" ? "unavail" : "", this._layout === "vertical" ? "vertical" : ""].join(" ").trim()}">
+        ${this._layout === "vertical" ? `
+        <div class="v-top">
+          <div class="shape${moving ? " moving" : ""}"><ha-icon icon="${icon}"></ha-icon></div>
+        </div>
+        <div class="names">
+          <span class="primary">${name}</span>
+          <span class="secondary"><b>${STATE_TEXT[st]}</b>${
+            pos !== null && st !== "unavailable" ? ` · ${Math.round(pos)}%` : ""
+          }</span>
+        </div>
+        <button class="pill" id="act" ${st === "unavailable" ? "disabled" : ""}>${label}</button>
+        ` : `
         <div class="row">
           <div class="shape${moving ? " moving" : ""}"><ha-icon icon="${icon}"></ha-icon></div>
           <div class="names">
@@ -502,6 +533,7 @@ class GateMushroomCard extends HTMLElement {
           </div>
           <button class="pill" id="act" ${st === "unavailable" ? "disabled" : ""}>${label}</button>
         </div>
+        `}
       </ha-card>
     `;
 
